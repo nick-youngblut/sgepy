@@ -1,0 +1,17 @@
+.DS_Store
+._.DS_Store
+screenlog.*
+*.pyc
+*.o
+*.so
+dev/
+t/
+tmp/
+*_OLD/
+*_OLD
+*.egg-info/
+*.eggs/
+build/
+.pytest_*
+__pycache__
+
