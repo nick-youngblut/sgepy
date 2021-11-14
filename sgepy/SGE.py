@@ -7,15 +7,26 @@ import shutil
 import logging
 import subprocess as sp
 import multiprocessing as mp
-try:
-    import dill as pickle
-except:
-    import pickle
+import dill as pickle
   
 class Worker():
     def __init__(self, parallel_env='parallel', threads=1, time='00:59:00',
-                 mem='6G', gpu=0, tmp_dir=None, conda_env='snakemake',
-                 keep_tmp=False, verbose=False):
+                 mem=6, gpu=0, conda_env='snakemake',
+                 tmp_dir='/ebio/abt3_projects/temp_data', keep_tmp=False,
+                 verbose=False):
+        """
+        Create SGE job worker for submiting & tracking a job.
+        Args:
+          parallel_env : SGE parallel env (-pe)
+          threads : number of parallel processes
+          time : job max time (format: 'hh:dd:mm')
+          mem : per-process (thread) job memmory (Gb)
+          gpu : use a gpu? (0=no, 1=yes)
+          conda_env : conda env activate in the qsub job 
+          tmp_dir : temporary file directory
+          keep_tmp : keep temporary file directory?
+          verbose : verbose output
+        """
         self.parallel_env=parallel_env
         self.threads = threads
         self.time = time
@@ -60,12 +71,18 @@ class Worker():
             return ret
 
     def clean_up(self):
+        """
+        Remove temp directory
+        """
         if os.path.isdir(self.tmp_dir):
             shutil.rmtree(self.tmp_dir)
         if self.verbose:
             logging.info('tmp dir removed: {}'.format(self.tmp_dir))
 
     def check_job(self):
+        """
+        Check the status of the SGE job 
+        """
         regex = re.compile(r' +')
         delay = 1
         while(1):
@@ -91,6 +108,9 @@ class Worker():
                 return ret
             
     def qstat_check(self, regex):
+        """
+        Check job status via qstat
+        """
         if self.verbose:
             logging.info('qstat check: {}'.format(self.jobid))                  
         p = sp.Popen(['qstat'], stdout=sp.PIPE)
@@ -109,6 +129,9 @@ class Worker():
         return None
 
     def qacct_check(self, regex):
+        """
+        Check job status via qacct
+        """
         if self.verbose:
             logging.info('qacct check: {}'.format(self.jobid))                           
         cmd = 'qacct -j {jobid}'.format(jobid=self.jobid)
@@ -155,6 +178,7 @@ class Worker():
         
     def job_python_script(self):
         """
+        Writing python script that will run the user-provided function
         """
         script = '''#!/usr/bin/env python
 from __future__ import print_function
@@ -184,6 +208,7 @@ if __name__ == '__main__':
         
     def job_bash_script(self):
         """        
+        Write the bash script that will call the python script
         """
         script = '''#!/bin/bash
 export OMP_NUM_THREADS=1
@@ -211,7 +236,7 @@ python {exe} {params} {outfile}
             
     def serialize(self, func, args=None, kwargs=dict(), pkgs=[]):
         """
-        serializing all objects
+        Serializing all python script parameter objects
         """
         d = {'func' : func, 'args' : args, 'kwargs' : kwargs, 'pkgs' : pkgs}
         outfile = os.path.join(self.tmp_dir, 'job_params.pkl')
@@ -220,7 +245,8 @@ python {exe} {params} {outfile}
         self.param_file = outfile
         if self.verbose:
             logging.info('File written: {}'.format(outfile))
-         
+
+    #-- setters --#
     @property
     def time(self):
         return self._time
@@ -237,8 +263,8 @@ python {exe} {params} {outfile}
         return self._mem
     @mem.setter
     def mem(self, x):
-        x = str(int(x.rstrip('GMgm')))
-        self._mem = x + 'G'
+        x = int(str(x).rstrip('GMgm'))
+        self._mem = str(x) + 'G'
                           
     @property
     def tmp_dir(self):
@@ -255,28 +281,8 @@ python {exe} {params} {outfile}
           
 # class Pool():
 #     def __init__(self, threads, time, mem, gpu, tmp_dir):
-#         pass
-#         # self.threads = threads
-#         # self.time = time
-#         # self.mem = mem
-#         # self.gpu = gpu
-#         # self.tmp_dir = tmp_dir
-#         # if threads > 1:
-#         #     self.pool = mp.Pool(threads)
-#         # else:
-#         #     self.pool = None
 
 #     def job(self, func, args, kwargs=dict()):
 #         w = worker()
 #         w.serialize(self.tmp_dir, func, args, kwargs)
             
-#     @property
-#     def time(self):
-#         return self._time
-#     @time.setter
-#     def time(self, x):
-#         if re.match('^[0-9]+$', str(x)):
-#             hours = int(int(x) / 60)
-#             minutes = int(x) % 60
-#             x = '{:0>2}:{:0>2}:00'.format(hours, minutes)
-#         self._time = x
