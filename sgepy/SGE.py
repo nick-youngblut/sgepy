@@ -5,14 +5,19 @@ import time
 import uuid
 import shutil
 import logging
+import functools
 import subprocess as sp
 import multiprocessing as mp
 import dill as pickle
-  
-class Worker():
-    def __init__(self, parallel_env='parallel', threads=1, time='00:59:00',
+
+class Proto():
+    """
+    Parent class for Worker and Pool
+    """
+    def __init__(self, kwargs=dict(), pkgs=[],
+                 parallel_env='parallel', threads=1, time='00:59:00',
                  mem=6, gpu=0, conda_env='snakemake',
-                 tmp_dir='/ebio/abt3_projects/temp_data', keep_tmp=False,
+                 tmp_dir='/ebio/abt3_projects/temp_data/', keep_tmp=False,
                  verbose=False):
         """
         Create SGE job worker for submiting & tracking a job.
@@ -27,6 +32,8 @@ class Worker():
           keep_tmp : keep temporary file directory?
           verbose : verbose output
         """
+        self.kwargs = kwargs
+        self.pkgs = pkgs
         self.parallel_env=parallel_env
         self.threads = threads
         self.time = time
@@ -36,6 +43,46 @@ class Worker():
         self.conda_env = conda_env
         self.verbose = verbose
         self.keep_tmp = keep_tmp
+    
+    #-- setters --#
+    @property
+    def time(self):
+        return self._time
+    @time.setter
+    def time(self, x):
+        if re.match('^[0-9]+$', str(x)):
+            hours = int(int(x) / 60)
+            minutes = int(x) % 60
+            x = '{:0>2}:{:0>2}:00'.format(hours, minutes)
+        self._time = x
+
+    @property
+    def mem(self):
+        return self._mem
+    @mem.setter
+    def mem(self, x):
+        x = int(str(x).rstrip('GMgm'))
+        self._mem = str(x) + 'G'
+                          
+    @property
+    def tmp_dir(self):
+        return self._tmp_dir
+    @tmp_dir.setter
+    def tmp_dir(self, x):
+        if x is None:
+            x = ''        
+        y = str(uuid.uuid4()).replace('-', '')
+        x = os.path.join(x, y)
+        os.makedirs(x, exist_ok=True)
+        self._tmp_dir = x   
+
+
+class Worker(Proto):
+    def __init__(self, *args, **kwargs):
+        """
+        subclassing Proto
+        """
+        Proto.__init__(self, *args, **kwargs)
         self.param_file = None
         self.python_script_file = None
         self.bash_script_file = None
@@ -44,12 +91,12 @@ class Worker():
         self.stderr_file = None
         self.jobid = None
 
-    def run(self, func, args=[], kwargs=dict(), pkgs=[]):
+    def run(self, func, args=[]):
         """
         Main job run function
         """
         # serialize
-        self.serialize(func, args, kwargs, pkgs)
+        self.serialize(func, args, self.kwargs, self.pkgs)
         # job script
         self.job_python_script()
         self.job_bash_script()
@@ -88,10 +135,10 @@ class Worker():
         while(1):
             # time delay between checks
             time.sleep(delay)
-            if delay < 120:
+            if delay < 60:
                 delay = delay * 1.5
             else:
-                delay = 120            
+                delay = 60
             # qstat
             ret = self.qstat_check(regex)
             if ret is None:
@@ -245,44 +292,44 @@ python {exe} {params} {outfile}
         self.param_file = outfile
         if self.verbose:
             logging.info('File written: {}'.format(outfile))
+        
+class Pool(Proto):
+    def __init__(self, n_jobs=1, *args, **kwargs):
+        """
+        subclassing Proto class
+        """
+        super().__init__(*args, **kwargs)
+        self.n_jobs = n_jobs
 
-    #-- setters --#
-    @property
-    def time(self):
-        return self._time
-    @time.setter
-    def time(self, x):
-        if re.match('^[0-9]+$', str(x)):
-            hours = int(int(x) / 60)
-            minutes = int(x) % 60
-            x = '{:0>2}:{:0>2}:00'.format(hours, minutes)
-        self._time = x
-
-    @property
-    def mem(self):
-        return self._mem
-    @mem.setter
-    def mem(self, x):
-        x = int(str(x).rstrip('GMgm'))
-        self._mem = str(x) + 'G'
-                          
-    @property
-    def tmp_dir(self):
-        return self._tmp_dir
-    @tmp_dir.setter
-    def tmp_dir(self, x):
-        if x is None:
-            x = ''        
-        y = str(uuid.uuid4()).replace('-', '')
-        x = os.path.join(x, y)
-        os.makedirs(x, exist_ok=True)
-        self._tmp_dir = x   
-
-          
-# class Pool():
-#     def __init__(self, threads, time, mem, gpu, tmp_dir):
-
-#     def job(self, func, args, kwargs=dict()):
-#         w = worker()
-#         w.serialize(self.tmp_dir, func, args, kwargs)
+    def run_worker(self, args, func):
+        """
+        Creating worker object & running
+        """
+        w = Worker(kwargs = self.kwargs,
+                   pkgs = self.pkgs,
+                   parallel_env = self.parallel_env,
+                   threads = self.threads,
+                   time = self.time,
+                   mem = self.mem,
+                   gpu = self.gpu,
+                   tmp_dir = self.tmp_dir,
+                   conda_env = self.conda_env,
+                   verbose = self.verbose,
+                   keep_tmp = self.keep_tmp)                   
+        return w.run(func, args)
+        
+    def map(self, func, args):
+        """
+        map function wrapper for python map or multiprocessing.map
+        Args:
+          func : function to map
+          args : iterable which function is applied to
+        """
+        F = functools.partial(self.run_worker, func=func)
+        if self.n_jobs > 1:
+            p = mp.Pool(self.n_jobs)
+            return p.map(F, args)
+        else:
+            return map(F, args)
             
+        
