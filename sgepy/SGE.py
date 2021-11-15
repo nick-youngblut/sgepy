@@ -8,6 +8,7 @@ import logging
 import functools
 import subprocess as sp
 import multiprocessing as mp
+from distutils.spawn import find_executable
 import dill as pickle
 
 class Proto():
@@ -90,6 +91,10 @@ class Worker(Proto):
         self.stdout_file = None
         self.stderr_file = None
         self.jobid = None
+        # checking that SGE commands exist
+        for exe in ['qsub', 'qstat', 'qacct']:
+            if find_executable(exe) is None:
+                raise OSError('Cannot find command: {}'.format(exe))            
 
     def run(self, func, args=[]):
         """
@@ -131,18 +136,15 @@ class Worker(Proto):
         Check the status of the SGE job 
         """
         regex = re.compile(r' +')
-        delay = 1
+        delay = 2
         while(1):
             # time delay between checks
             time.sleep(delay)
-            if delay < 60:
-                delay = delay * 1.5
-            else:
-                delay = 60
+            delay = 60 if delay > 60 else delay * 1.5
             # qstat
             ret = self.qstat_check(regex)
             if ret is None:
-                time.sleep(3)
+                time.sleep(5)
             elif ret == 'failed':
                 sys.stderr('job faild: {}'.format(self.jobid))
             elif ret == 'running':
@@ -201,7 +203,8 @@ class Worker(Proto):
         """
         self.stdout_file = os.path.join(self.tmp_dir, 'stdout.txt')
         self.stderr_file = os.path.join(self.tmp_dir, 'stderr.txt')
-        cmd = 'qsub -cwd -pe {par_env} {threads} -l h_vmem={mem} -l h_rt={time} -l gpu={gpu} -o {std_out} -e {std_err} {job_script}'
+        cmd = 'qsub -cwd -pe {par_env} {threads} -l h_vmem={mem} -l h_rt={time}'
+        cmd += ' -l gpu={gpu} -o {std_out} -e {std_err} {job_script}'
         cmd = cmd.format(par_env=self.parallel_env,
                          threads=self.threads,
                          mem=self.mem,
@@ -218,7 +221,7 @@ class Worker(Proto):
             raise e
         res = res.stdout.decode()
         try:
-            m = re.search("Your job (\d+)", res)
+            m = re.search("Your job ([0-9]+)", res)
             self.jobid = m.group(1)            
         except Exception as e:
             raise ValueError(e)
