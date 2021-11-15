@@ -142,7 +142,7 @@ class Worker(Proto):
             # qstat
             ret = self.qstat_check(regex)
             if ret is None:
-                pass
+                time.sleep(3)
             elif ret == 'failed':
                 sys.stderr('job faild: {}'.format(self.jobid))
             elif ret == 'running':
