@@ -1,3 +1,5 @@
+# import
+## batteries
 import os
 import sys
 import re
@@ -8,11 +10,12 @@ import shutil
 import logging
 import functools
 import subprocess as sp
-import multiprocessing as mp
 from distutils.spawn import find_executable
+## 3rd party
+import pathos.multiprocessing as mp
 import dill as pickle
 
-
+# classes
 class Proto():
     """
     Parent class for Worker and Pool

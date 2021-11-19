@@ -5,9 +5,10 @@ import glob
 import codecs
 
 # dependencies
-#install_reqs = [
-#    'numpy>=1.17.0'
-#]
+install_reqs = [
+    'dill>=0.3',
+    'pathos>=0.2.8'
+]
 
 # getting version from __init__.py
 def read(rel_path):
@@ -24,7 +25,7 @@ def get_version(rel_path):
         raise RuntimeError('Unable to find version string.')
     
 ## install main application
-desc = 'haptag-mg package'
+desc = 'sgepy package'
 setup(
     name = 'sgepy',
     version = get_version('sgepy/__init__.py'),
@@ -32,12 +33,11 @@ setup(
     long_description = desc + '\n See README for more information.',
     author = 'Nick Youngblut',
     author_email = 'nyoungb2@gmail.com',
-#    install_requires = install_reqs,
-#    include_dirs = [numpy.get_include()],
+    install_requires = install_reqs,
     license = 'MIT license',
     packages = find_packages(),
     package_dir={'sgepy': 'sgepy'},
-    url = 'https://github.com/leylabmpi/sgepy'
+    url = 'https://github.com/nick-youngblut/sgepy'
 )
 
 
