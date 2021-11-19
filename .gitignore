@@ -7,6 +7,7 @@ screenlog.*
 dev/
 t/
 tmp/
+archive/
 tests/tmp/
 *_OLD/
 *_OLD
@@ -15,4 +16,5 @@ tests/tmp/
 build/
 .pytest_*
 __pycache__
-
+hs_err_*.log
+replay_*.log

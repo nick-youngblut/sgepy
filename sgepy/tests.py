@@ -26,7 +26,7 @@ Run >= 1 script runner test
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
 parser.add_argument('--test', type=str, nargs='+', default='lambda',
-                    choices = ['lambda', 'kwargs', 'pool', 'all'],
+                    choices = ['lambda', 'kwargs', 'mem', 'time', 'pool', 'all'],
                     help='Test(s) to perform')
 parser.add_argument('--tmp-dir', type=str, default=tmp_dir,
                     help='Temporary file directory')
@@ -38,20 +38,34 @@ def func1(x, y=1, z=2):
     time.sleep(x)
     return x * y * z
 
-def main(args):
+def main(args):    
     if 'lambda' in args.test or 'all' in args.test:
         logging.info('-- lambda function test --')
         func = lambda x: [x**2 for x in range(5)]
         w = SGE.Worker(tmp_dir=args.tmp_dir, verbose=True)
-        ret = w.run(func, 2)
+        ret = w(func, 2)
         assert ret == [0, 1, 4, 9, 16], 'lambda test failed'
     if 'kwargs' in args.test or 'all' in args.test:
         logging.info('-- kwargs test --')
         kwargs = {'y' : 2, 'z' : 3}
         pkgs = ['time']
         w = SGE.Worker(tmp_dir=args.tmp_dir, kwargs=kwargs, pkgs=pkgs, verbose=True)
-        ret = w.run(func1, 1)
+        ret = w(func1, 1)
         assert ret == 6, 'kwargs test failed'
+    if 'mem' in args.test or 'all' in args.test:
+        logging.info('-- dynamic mem resource function test --')
+        func = lambda x: sum([1] * 10 ** 9)
+        mem = lambda attempt, threads: 2 * attempt ** 2
+        w = SGE.Worker(tmp_dir=args.tmp_dir, verbose=True, mem=mem)
+        ret = w(func, 2)
+        assert ret == 10 ** 9, 'dynamic mem test failed'
+    if 'time' in args.test or 'all' in args.test:
+        logging.info('-- dynamic time resource function test --')
+        pkgs = ['time']        
+        time = lambda attempt, threads: 8 * attempt ** 3
+        w = SGE.Worker(tmp_dir=args.tmp_dir, pkgs=pkgs, verbose=True, time=time)
+        ret = w(func1, 1)
+        assert ret == 2, 'dynamic time test failed'
     if 'pool' in args.test or 'all' in args.test:
         logging.info('-- pool test --')
         kwargs = {'y' : 2, 'z' : 2}

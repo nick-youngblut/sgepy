@@ -3,6 +3,7 @@ import sys
 import re
 import time
 import uuid
+import types
 import shutil
 import logging
 import functools
@@ -11,13 +12,14 @@ import multiprocessing as mp
 from distutils.spawn import find_executable
 import dill as pickle
 
+
 class Proto():
     """
     Parent class for Worker and Pool
     """
     def __init__(self, kwargs=dict(), pkgs=[],
                  parallel_env='parallel', threads=1, time='00:59:00',
-                 mem=6, gpu=0, conda_env='snakemake',
+                 mem=6, gpu=0, conda_env='snakemake', max_attempts=3,
                  tmp_dir='/ebio/abt3_projects/temp_data/', keep_tmp=False,
                  verbose=False):
         """
@@ -25,7 +27,7 @@ class Proto():
         Args:
           parallel_env : SGE parallel env (-pe)
           threads : number of parallel processes
-          time : job max time (format: 'hh:dd:mm')
+          time : job max time (seconds)
           mem : per-process (thread) job memmory (Gb)
           gpu : use a gpu? (0=no, 1=yes)
           conda_env : conda env activate in the qsub job 
@@ -44,26 +46,45 @@ class Proto():
         self.conda_env = conda_env
         self.verbose = verbose
         self.keep_tmp = keep_tmp
-    
+        self.attempt = 1
+        self.max_attempts = max_attempts
+
+    @staticmethod
+    def format_time(x):
+        x = str(x)
+        if re.match('^[0-9]+$', x):
+            x = int(x)
+            hours = int(x / 360)
+            minutes = int((x - (hours * 360)) / 60)
+            secs = x - (hours * 360 + minutes * 60)
+            x = '{:0>2}:{:0>2}:{:0>2}'.format(hours, minutes, secs)
+        if not re.match('^[0-9]{2}:[0-5][0-9]:[0-5][0-9]$', x):
+            raise ValueError('Time resource not formatted correctly: {}'.format(x))
+        return x
+        
     #-- setters --#
     @property
     def time(self):
-        return self._time
+        x = self._time(attempt=self.attempt, threads=self.threads)
+        return self.format_time(x)
     @time.setter
     def time(self, x):
-        if re.match('^[0-9]+$', str(x)):
-            hours = int(int(x) / 60)
-            minutes = int(x) % 60
-            x = '{:0>2}:{:0>2}:00'.format(hours, minutes)
-        self._time = x
+        if isinstance(x, types.FunctionType):
+            self._time = x
+        else:
+            self._time = lambda attempt, threads: x
 
     @property
     def mem(self):
-        return self._mem
+        x = self._mem(attempt=self.attempt, threads=self.threads)
+        return str(int(x)) + 'G'
     @mem.setter
     def mem(self, x):
-        x = int(str(x).rstrip('GMgm'))
-        self._mem = str(x) + 'G'
+        if isinstance(x, types.FunctionType):
+            self._mem = x
+        else:
+            x = int(str(x).rstrip('GMgm'))
+            self._mem = lambda attempt, threads: x
                           
     @property
     def tmp_dir(self):
@@ -79,6 +100,9 @@ class Proto():
 
 
 class Worker(Proto):
+    """
+    Class to submit a cluster job, check its status, and return the results
+    """    
     def __init__(self, *args, **kwargs):
         """
         subclassing Proto
@@ -96,7 +120,7 @@ class Worker(Proto):
             if find_executable(exe) is None:
                 raise OSError('Cannot find command: {}'.format(exe))            
 
-    def run(self, func, args=[]):
+    def _run(self, func, args):
         """
         Main job run function
         """
@@ -108,24 +132,37 @@ class Worker(Proto):
         # qsub
         self.qsub()
         # check job
+        return self.check_job()
+                    
+    def __call__(self, func, args=[]):
+        """
+        qsub job 
+        """
         while(1):
-            ret = self.check_job()
+            # run job
+            ret = self._run(func, args)
+            # evaluate job status
+            ## fail
             if ret == 'failed':
-                # TODO: job resource excalation
-                raise ValueError('job failed: {}'.format(self.jobid))
+                if self.attempt >= self.max_attempts:
+                    self.clean_up()
+                    raise ValueError('job failed: {}'.format(self.jobid))
+                else:
+                    self.attempt += 1
+                    continue
+            ## success
             elif ret == 'success':
                 ret = pickle.load(open(self.results_file, 'rb'))
-            else:
-                raise ValueError('job check ret value not recognized: {}'.format(ret))
             # clean up
-            if self.keep_tmp is False:
-                self.clean_up()
-            return ret
+            self.clean_up()
+            return ret            
 
     def clean_up(self):
         """
         Remove temp directory
         """
+        if self.keep_tmp is True:
+            return None
         if os.path.isdir(self.tmp_dir):
             shutil.rmtree(self.tmp_dir)
         if self.verbose:
@@ -140,7 +177,7 @@ class Worker(Proto):
         while(1):
             # time delay between checks
             time.sleep(delay)
-            delay = 60 if delay > 60 else delay * 1.5
+            delay = 60 if delay > 60 else delay * 1.2
             # qstat
             ret = self.qstat_check(regex)
             if ret is None:
@@ -230,6 +267,8 @@ class Worker(Proto):
         """
         Writing python script that will run the user-provided function
         """
+        if self.attempt > 1:
+            return None
         script = '''#!/usr/bin/env python
 from __future__ import print_function
 import os
@@ -260,6 +299,8 @@ if __name__ == '__main__':
         """        
         Write the bash script that will call the python script
         """
+        if self.attempt > 1:
+            return None
         script = '''#!/bin/bash
 export OMP_NUM_THREADS=1
 if [[ -f ~/.bashrc &&  $(grep -c "__conda_setup=" ~/.bashrc) -gt 0 && $(grep -c "unset __conda_setup" ~/.bashrc) -gt 0 ]]; then
@@ -288,6 +329,8 @@ python {exe} {params} {outfile}
         """
         Serializing all python script parameter objects
         """
+        if self.attempt > 1:
+            return None
         d = {'func' : func, 'args' : args, 'kwargs' : kwargs, 'pkgs' : pkgs}
         outfile = os.path.join(self.tmp_dir, 'job_params.pkl')
         with open(outfile, 'wb') as outF:
@@ -319,7 +362,7 @@ class Pool(Proto):
                    conda_env = self.conda_env,
                    verbose = self.verbose,
                    keep_tmp = self.keep_tmp)                   
-        return w.run(func, args)
+        return w(func, args)
         
     def map(self, func, args):
         """
