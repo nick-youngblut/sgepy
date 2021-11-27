@@ -26,7 +26,7 @@ Run >= 1 script runner test
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
 parser.add_argument('--test', type=str, nargs='+', default='lambda',
-                    choices = ['lambda', 'kwargs', 'mem', 'time', 'pool', 'all'],
+                    choices = ['lambda', 'kwargs', 'mem', 'time', 'error', 'pool', 'all'],
                     help='Test(s) to perform')
 parser.add_argument('--tmp-dir', type=str, default=tmp_dir,
                     help='Temporary file directory')
@@ -66,6 +66,15 @@ def main(args):
         w = SGE.Worker(tmp_dir=args.tmp_dir, pkgs=pkgs, verbose=True, time=time)
         ret = w(func1, 1)
         assert ret == 2, 'dynamic time test failed'
+    if 'error' in args.test or 'all' in args.test:
+        logging.info('-- error function test --')
+        func = lambda x: x ** 'x'
+        w = SGE.Worker(tmp_dir=args.tmp_dir, verbose=True, max_attempts=2)
+        try:
+            ret = w(func, 2)
+        except ValueError:
+            ret = None
+        assert ret is None, 'error test failed'
     if 'pool' in args.test or 'all' in args.test:
         logging.info('-- pool test --')
         kwargs = {'y' : 2, 'z' : 2}

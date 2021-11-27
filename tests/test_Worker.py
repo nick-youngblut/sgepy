@@ -37,8 +37,8 @@ def test_time():
     """
     subprocess.run([test_exe, '--test', 'time'])
     
-def test_pool():
+def test_error():
     """
-    test of pooling function
+    test job error 
     """
-    subprocess.run([test_exe, '--test', 'pool'])
+    subprocess.run([test_exe, '--test', 'error'])

@@ -148,8 +148,10 @@ class Worker(Proto):
             ## fail
             if ret == 'failed':
                 if self.attempt >= self.max_attempts:
+                    self.write_job_log('stderr.txt')
+                    self.write_job_log('stdout.txt')
                     self.clean_up()
-                    raise ValueError('job failed: {}'.format(self.jobid))
+                    raise ValueError('job failed: {}'.format(self.jobid))                
                 else:
                     self.attempt += 1
                     continue
@@ -160,6 +162,15 @@ class Worker(Proto):
             self.clean_up()
             return ret            
 
+    def write_job_log(self, log_file='stderr.txt'):
+        sys.stderr.write('#------ {} ------#\n'.format(log_file))
+        F = os.path.join(self.tmp_dir, log_file)
+        if os.path.isfile(F):
+            with open(F) as inF:
+                for line in inF:
+                    sys.stderr.write(line)
+        sys.stderr.write('#------------------------#\n'.format(log_file))        
+        
     def clean_up(self):
         """
         Remove temp directory
@@ -167,8 +178,15 @@ class Worker(Proto):
         if self.keep_tmp is True:
             return None
         if os.path.isdir(self.tmp_dir):
-            shutil.rmtree(self.tmp_dir)
-        if self.verbose:
+            try:
+                shutil.rmtree(self.tmp_dir)
+            except OSError:
+                time.sleep(5)
+                try:
+                    shutil.rmtree(self.tmp_dir)
+                except OSError:
+                    logging.warning('Could not remove tmp dir: {}'.format(self.tmp_dir))
+        if self.verbose and not os.path.isdir(self.tmp_dir):
             logging.info('tmp dir removed: {}'.format(self.tmp_dir))
 
     def check_job(self):
