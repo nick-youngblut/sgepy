@@ -7,7 +7,8 @@ import codecs
 # dependencies
 install_reqs = [
     'dill>=0.3',
-    'pathos>=0.2.8'
+    'pathos>=0.2.8',
+    'tqdm>=4'
 ]
 
 # getting version from __init__.py

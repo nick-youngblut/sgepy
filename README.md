@@ -34,7 +34,7 @@ Simple package for simple SGE job submission & monitoring
 Via conda
 
 ```
-conda install "dill>=0.3" "pathos>=0.2.8"
+conda install "dill>=0.3" "pathos>=0.2.8" "tqdm>=4"
 ```
 
 ## sgepy package

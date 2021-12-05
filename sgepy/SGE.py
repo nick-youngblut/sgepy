@@ -14,6 +14,7 @@ from distutils.spawn import find_executable
 ## 3rd party
 import pathos.multiprocessing as mp
 import dill as pickle
+import tqdm
 
 # classes
 class Proto():
@@ -394,9 +395,12 @@ class Pool(Proto):
         """
         F = functools.partial(self.run_worker, func=func)
         if self.n_jobs > 1:
-            p = mp.Pool(self.n_jobs)
-            return p.map(F, args)
+            with mp.Pool(self.n_jobs) as p:
+                if self.verbose is False:
+                    return list(tqdm.tqdm(p.imap(F, args), total=len(args)))
+                else:
+                    return list(p.map(F, args))
         else:
-            return map(F, args)
+            return list(tqdm.tqdm(map(F, args), total=len(args)))
             
         

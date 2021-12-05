@@ -26,7 +26,8 @@ Run >= 1 script runner test
 parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                  formatter_class=CustomFormatter)
 parser.add_argument('--test', type=str, nargs='+', default='lambda',
-                    choices = ['lambda', 'kwargs', 'mem', 'time', 'error', 'pool', 'all'],
+                    choices = ['lambda', 'kwargs', 'mem', 'time', 'error', 'pool',
+                               'poolv', 'all'],
                     help='Test(s) to perform')
 parser.add_argument('--tmp-dir', type=str, default=tmp_dir,
                     help='Temporary file directory')
@@ -38,7 +39,8 @@ def func1(x, y=1, z=2):
     time.sleep(x)
     return x * y * z
 
-def main(args):    
+def main(args):
+    #-- worker --#
     if 'lambda' in args.test or 'all' in args.test:
         logging.info('-- lambda function test --')
         func = lambda x: [x**2 for x in range(5)]
@@ -75,13 +77,21 @@ def main(args):
         except ValueError:
             ret = None
         assert ret is None, 'error test failed'
+    #-- pool --#
     if 'pool' in args.test or 'all' in args.test:
         logging.info('-- pool test --')
         kwargs = {'y' : 2, 'z' : 2}
         pkgs = ['time']
+        p = SGE.Pool(tmp_dir=args.tmp_dir, kwargs=kwargs, pkgs=pkgs, n_jobs=2, verbose=False)
+        ret = p.map(func1, [1,2,3,4])
+        assert ret == [4, 8, 12, 16], 'pool test failed'
+    if 'poolv' in args.test or 'all' in args.test:
+        logging.info('-- verbose pool test --')
+        kwargs = {'y' : 2, 'z' : 2}
+        pkgs = ['time']
         p = SGE.Pool(tmp_dir=args.tmp_dir, kwargs=kwargs, pkgs=pkgs, n_jobs=2, verbose=True)
-        ret = p.map(func1, [1,5])
-        assert ret == [4, 20], 'pool test failed'
+        ret = p.map(func1, [1,2,3])
+        assert ret == [4, 8, 12], 'poolv test failed'
 
     
 if __name__ == '__main__':
