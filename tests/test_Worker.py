@@ -9,36 +9,36 @@ import subprocess
 ## package
 from sgepy import SGE
 
-test_dir = os.path.dirname(__file__)
-test_exe = os.path.join(os.path.dirname(test_dir), 'sgepy', 'tests.py')
-
 # tests
+def test_help():
+     subprocess.run(['sgepy-test.py', '-h'])
+
 def test_lambda():
     """
     simple lambda function
     """
-    subprocess.run([test_exe])
+    subprocess.run(['sgepy-test.py', '--test', 'lambda'])
 
 def test_kwargs():
     """
     test using kwargs
     """
-    subprocess.run([test_exe, '--test', 'kwargs'])
+    subprocess.run(['sgepy-test.py', '--test', 'kwargs'])
 
 def test_mem():
     """
-    test using kwargs
+    test using kwargs & escalating mem resource
     """
-    subprocess.run([test_exe, '--test', 'mem'])
+    subprocess.run(['sgepy-test.py', '--test', 'mem'])
 
 def test_time():
     """
-    test using kwargs
+    test using kwargs & escalating time resource
     """
-    subprocess.run([test_exe, '--test', 'time'])
+    subprocess.run(['sgepy-test.py', '--test', 'time'])
     
 def test_error():
     """
     test job error 
     """
-    subprocess.run([test_exe, '--test', 'error'])
+    subprocess.run(['sgepy-test.py', '--test', 'error'])

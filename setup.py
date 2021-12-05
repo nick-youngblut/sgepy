@@ -37,6 +37,7 @@ setup(
     license = 'MIT license',
     packages = find_packages(),
     package_dir={'sgepy': 'sgepy'},
+    scripts = ['bin/sgepy-test.py'],
     url = 'https://github.com/nick-youngblut/sgepy'
 )
 

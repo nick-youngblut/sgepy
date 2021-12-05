@@ -9,7 +9,7 @@ import argparse
 import logging
 import time
 import multiprocessing as mp
-import SGE
+from sgepy import SGE
 
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
