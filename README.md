@@ -1,3 +1,6 @@
+[![sgepy](https://github.com/nick-youngblut/sgepy/actions/workflows/pythonpackage.yml/badge.svg)](https://github.com/nick-youngblut/sgepy/actions/workflows/pythonpackage.yml)
+[![Upload Python Package](https://github.com/nick-youngblut/sgepy/actions/workflows/python-publish.yml/badge.svg)](https://github.com/nick-youngblut/sgepy/actions/workflows/python-publish.yml)
+
 sgepy
 =====
 
