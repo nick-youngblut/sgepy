@@ -57,10 +57,10 @@ pytest -s
 ## Worker class
 
 ```
-sgepy.SGE.Worker(kwargs=dict(), pkgs=[], threads=1, time='00:59:00', mem=6, gpu=0,
-                 max_attempts=3, conda_env='snakemake', 
-                 tmp_dir='/ebio/abt3_projects/temp_data/', keep_tmp=False,
-		 parallel_env='parallel', verbose=False)
+sgepy.Worker(kwargs=dict(), pkgs=[], threads=1, time='00:59:00', mem=6, gpu=0,
+             max_attempts=3, conda_env='snakemake', 
+             tmp_dir='/ebio/abt3_projects/temp_data/', keep_tmp=False,
+	     parallel_env='parallel', verbose=False)
 ```
 
 ### Parameters
@@ -139,10 +139,10 @@ worker_object(function, x)
 ## Pool class
 
 ```
-sgepy.SGE.Pool(njobs=1, kwargs=dict(), pkgs=[], threads=1, time='00:59:00', mem=6, gpu=0,
-               max_attempts=3, conda_env='snakemake', 
-               tmp_dir='/ebio/abt3_projects/temp_data/', keep_tmp=False,
-	       parallel_env='parallel', verbose=False)
+sgepy.Pool(njobs=1, kwargs=dict(), pkgs=[], threads=1, time='00:59:00', mem=6, gpu=0,
+           max_attempts=3, conda_env='snakemake', 
+           tmp_dir='/ebio/abt3_projects/temp_data/', keep_tmp=False,
+	   parallel_env='parallel', verbose=False)
 ```
 
 ### Parameters
@@ -178,16 +178,16 @@ pool.map(function, x)
 Using a simple lambda function
 
 ```
-from sgepy import SGE
+import sgepy
 func = lambda x: [x**2 for x in range(5)]
-w = SGE.Workerverbose=True)
+w = sgepy.Workerverbose=True)
 w(func, 2)
 ```
 
 Test with keyword arguments and package dependencies
 
 ```
-from sgepy import SGE
+import sgepy
 
 # simple function
 def func1(x, y=1, z=2):
@@ -197,14 +197,14 @@ def func1(x, y=1, z=2):
 # cluster worker 
 kwargs = {'y' : 2, 'z' : 3}
 pkgs = ['time']
-w = SGE.Worker(tmp_dir=args.tmp_dir, kwargs=kwargs, pkgs=pkgs, verbose=True)
+w = sgepy.Worker(tmp_dir=args.tmp_dir, kwargs=kwargs, pkgs=pkgs, verbose=True)
 w(func1, 1)
 ```
 
 Using the `multiprocessing.Pool()` functionality
 
 ```
-from sgepy import SGE
+import sgepy
 
 # simple function (requires import of a package)
 def func1(x, y=1, z=2):
@@ -214,7 +214,7 @@ def func1(x, y=1, z=2):
 # map call
 kwargs = {'y' : 2, 'z' : 2}
 pkgs = ['time']
-p = SGE.Pool(tmp_dir=args.tmp_dir, kwargs=kwargs, pkgs=pkgs, n_jobs=2, verbose=True)
+p = sgepy.Pool(tmp_dir=args.tmp_dir, kwargs=kwargs, pkgs=pkgs, n_jobs=2, verbose=True)
 p.map(func1, [1,5])
 ```
 
